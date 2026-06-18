@@ -1,0 +1,14 @@
+{
+  "name": "frontdoor",
+  "version": "1.0.0",
+  "description": "Front Door — Secure AI Gateway for Internal Users",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n server,client -c cyan,magenta \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "install:all": "npm install && npm install --prefix server && npm install --prefix client",
+    "build": "npm run build --prefix server && npm run build --prefix client"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
