@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { scan, Severity } from './scanner';
-import { callProvider, Provider, Message } from './providers';
+import { callProvider, Provider, Message, MODEL_CATALOG, DEFAULT_MODEL } from './providers';
 
 const router = Router();
 
@@ -13,6 +13,8 @@ router.get('/config', (_req: Request, res: Response) => {
 
   res.json({
     providers: configured,
+    models: MODEL_CATALOG,
+    defaultModels: DEFAULT_MODEL,
     sensitivity: (process.env.SENSITIVITY as Severity) || 'medium',
     forbiddenKeywords: (process.env.FORBIDDEN_KEYWORDS || '')
       .split(',')
@@ -23,6 +25,7 @@ router.get('/config', (_req: Request, res: Response) => {
 
 interface ChatBody {
   provider: Provider;
+  model?: string;
   messages: Message[];
   sensitivity?: Severity;
   forbiddenKeywords?: string[];
@@ -30,7 +33,7 @@ interface ChatBody {
 
 // POST /api/chat — scan then proxy to AI provider
 router.post('/chat', async (req: Request, res: Response) => {
-  const { provider, messages, sensitivity, forbiddenKeywords } = req.body as ChatBody;
+  const { provider, model, messages, sensitivity, forbiddenKeywords } = req.body as ChatBody;
 
   if (!provider || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'provider and messages are required' });
@@ -57,8 +60,10 @@ router.post('/chat', async (req: Request, res: Response) => {
     });
   }
 
+  const effectiveModel = model || DEFAULT_MODEL[provider];
+
   try {
-    const response = await callProvider(provider, messages, process.env);
+    const response = await callProvider(provider, messages, effectiveModel, process.env);
     return res.json({ response, scanResult });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

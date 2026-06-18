@@ -19,8 +19,15 @@ export interface Finding {
   description: string;
 }
 
+export interface ModelInfo {
+  id: string;
+  label: string;
+}
+
 export interface Config {
   providers: Provider[];
+  models: Record<Provider, ModelInfo[]>;
+  defaultModels: Record<Provider, string>;
   sensitivity: SensitivityLevel;
   forbiddenKeywords: string[];
 }

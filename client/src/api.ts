@@ -31,6 +31,7 @@ export type ChatResult = ChatSuccess | ChatBlocked | ChatError;
 
 export async function sendChat(
   provider: Provider,
+  model: string,
   messages: Pick<Message, 'role' | 'content'>[],
   sensitivity: SensitivityLevel,
   forbiddenKeywords: string[],
@@ -40,6 +41,7 @@ export async function sendChat(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       provider,
+      model,
       messages: messages.map(({ role, content }) => ({ role, content })),
       sensitivity,
       forbiddenKeywords,

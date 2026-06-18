@@ -22,12 +22,12 @@ export default function App() {
   const [config, setConfig] = useState<Config | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
   const [provider, setProvider] = useState<Provider>('openai');
+  const [model, setModel] = useState<string>('');
   const [sensitivity, setSensitivity] = useState<SensitivityLevel>('medium');
   const [keywords, setKeywords] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -36,10 +36,19 @@ export default function App() {
         setConfig(cfg);
         setSensitivity(cfg.sensitivity);
         setKeywords(cfg.forbiddenKeywords.join(', '));
-        if (cfg.providers.length > 0) setProvider(cfg.providers[0]);
+        if (cfg.providers.length > 0) {
+          const firstProvider = cfg.providers[0];
+          setProvider(firstProvider);
+          setModel(cfg.defaultModels[firstProvider]);
+        }
       })
       .catch(() => setConfigError('Cannot reach the Front Door server. Is it running?'));
   }, []);
+
+  // When provider changes, reset model to that provider's default
+  useEffect(() => {
+    if (config) setModel(config.defaultModels[provider]);
+  }, [provider, config]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -49,6 +58,9 @@ export default function App() {
     .split(',')
     .map((k) => k.trim())
     .filter(Boolean);
+
+  const availableModels = config?.models[provider] ?? [];
+  const selectedModelInfo = availableModels.find((m) => m.id === model);
 
   const submit = useCallback(async () => {
     const text = input.trim();
@@ -65,7 +77,7 @@ export default function App() {
     setLoading(true);
 
     const history = [...messages, userMsg];
-    const result = await sendChat(provider, history, sensitivity, forbiddenKeywordList);
+    const result = await sendChat(provider, model, history, sensitivity, forbiddenKeywordList);
     setLoading(false);
 
     if (result.ok) {
@@ -103,7 +115,7 @@ export default function App() {
         },
       ]);
     }
-  }, [input, loading, messages, provider, sensitivity, forbiddenKeywordList]);
+  }, [input, loading, messages, provider, model, sensitivity, forbiddenKeywordList]);
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -152,6 +164,25 @@ export default function App() {
           )}
         </div>
 
+        {/* ── Model selector ── */}
+        {config && config.providers.includes(provider) && (
+          <div className="sidebar-section">
+            <label className="section-label">Model</label>
+            <div className="model-list">
+              {availableModels.map((m) => (
+                <button
+                  key={m.id}
+                  className={`model-btn ${model === m.id ? 'active' : ''}`}
+                  style={model === m.id ? { borderColor: activeColor, color: activeColor } : {}}
+                  onClick={() => setModel(m.id)}
+                >
+                  <span className="model-label">{m.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="sidebar-section">
           <label className="section-label">Sensitivity</label>
           <div className="sensitivity-group">
@@ -198,7 +229,7 @@ export default function App() {
             Secure AI Gateway
             {config && config.providers.includes(provider) && (
               <span className="topbar-provider" style={{ color: activeColor }}>
-                → {PROVIDER_LABELS[provider]}
+                → {selectedModelInfo?.label ?? model}
               </span>
             )}
           </div>
@@ -242,9 +273,7 @@ export default function App() {
                 <div className="bubble assistant-bubble">
                   <div className="bubble-content">{msg.content}</div>
                   {msg.model && (
-                    <div className="bubble-meta">
-                      via {msg.model}
-                    </div>
+                    <div className="bubble-meta">via {msg.model}</div>
                   )}
                 </div>
               )}
@@ -268,7 +297,7 @@ export default function App() {
             placeholder={
               config && config.providers.length === 0
                 ? 'Configure at least one provider in .env to start chatting…'
-                : `Message ${config ? PROVIDER_LABELS[provider] : '…'} (Shift+Enter for new line)`
+                : `Message ${selectedModelInfo?.label ?? '…'} (Shift+Enter for new line)`
             }
             value={input}
             onChange={(e) => setInput(e.target.value)}
