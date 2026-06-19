@@ -55,7 +55,21 @@ npm run install:all
 
 ### 2. Configure API keys
 
-The easiest way is to run the included PowerShell setup script:
+**Option A — paste a key directly in the UI (easiest)**
+
+Start the server first (step 3), then paste any API key into the **API Key** field in the sidebar. The provider is detected automatically from the key prefix and the corresponding provider button unlocks immediately. No server restart needed.
+
+| Key prefix | Provider |
+|---|---|
+| `sk-ant-…` | Anthropic (Claude) |
+| `AIza…` | Google Gemini |
+| `sk-…` / `sk-proj-…` | OpenAI (ChatGPT) |
+
+Keys entered this way are held in browser memory for the session only and sent securely with each request.
+
+**Option B — configure server-side keys in `.env`**
+
+Use the included PowerShell setup script:
 
 ```powershell
 .\scripts\Set-FrontDoorKeys.ps1
@@ -96,14 +110,14 @@ All server-side configuration lives in `.env`:
 
 | Variable | Default | Description |
 |---|---|---|
-| `OPENAI_API_KEY` | — | OpenAI API key |
-| `GEMINI_API_KEY` | — | Google Gemini API key |
-| `ANTHROPIC_API_KEY` | — | Anthropic API key |
+| `OPENAI_API_KEY` | — | OpenAI API key (can also be supplied per-session via the UI) |
+| `GEMINI_API_KEY` | — | Google Gemini API key (can also be supplied per-session via the UI) |
+| `ANTHROPIC_API_KEY` | — | Anthropic API key (can also be supplied per-session via the UI) |
 | `PORT` | `3001` | Backend server port |
 | `SENSITIVITY` | `medium` | `high` / `medium` / `low` — minimum severity to block |
 | `FORBIDDEN_KEYWORDS` | — | Comma-separated list of always-blocked terms |
 
-Per-session overrides for sensitivity and forbidden keywords are available directly in the UI sidebar.
+Per-session overrides for sensitivity, forbidden keywords, and API keys are available directly in the UI sidebar. A key pasted in the UI takes precedence over the corresponding `.env` key for that session.
 
 ## Project structure
 
@@ -145,11 +159,13 @@ Scans the latest user message, then forwards the conversation to the selected pr
   "model": "gemini-2.0-flash",
   "messages": [{ "role": "user", "content": "Hello!" }],
   "sensitivity": "medium",
-  "forbiddenKeywords": ["confidential"]
+  "forbiddenKeywords": ["confidential"],
+  "apiKey": "AIza..."
 }
 ```
 
 - `model` is optional — omitting it uses the provider's default model.
+- `apiKey` is optional — if provided, it overrides the server-side `.env` key for this request. The UI uses this field when a key is pasted into the sidebar.
 - Returns `400` with a `findings[]` array if sensitive data is detected.
 - Returns `200` with the provider response if the prompt is clean.
 
