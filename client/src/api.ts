@@ -35,6 +35,7 @@ export async function sendChat(
   messages: Pick<Message, 'role' | 'content'>[],
   sensitivity: SensitivityLevel,
   forbiddenKeywords: string[],
+  apiKey?: string,
 ): Promise<ChatResult> {
   const res = await fetch(`${BASE}/chat`, {
     method: 'POST',
@@ -45,6 +46,7 @@ export async function sendChat(
       messages: messages.map(({ role, content }) => ({ role, content })),
       sensitivity,
       forbiddenKeywords,
+      ...(apiKey ? { apiKey } : {}),
     }),
   });
 

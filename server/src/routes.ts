@@ -29,11 +29,12 @@ interface ChatBody {
   messages: Message[];
   sensitivity?: Severity;
   forbiddenKeywords?: string[];
+  apiKey?: string;
 }
 
 // POST /api/chat — scan then proxy to AI provider
 router.post('/chat', async (req: Request, res: Response) => {
-  const { provider, model, messages, sensitivity, forbiddenKeywords } = req.body as ChatBody;
+  const { provider, model, messages, sensitivity, forbiddenKeywords, apiKey } = req.body as ChatBody;
 
   if (!provider || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'provider and messages are required' });
@@ -63,7 +64,7 @@ router.post('/chat', async (req: Request, res: Response) => {
   const effectiveModel = model || DEFAULT_MODEL[provider];
 
   try {
-    const response = await callProvider(provider, messages, effectiveModel, process.env);
+    const response = await callProvider(provider, messages, effectiveModel, process.env, apiKey || undefined);
     return res.json({ response, scanResult });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

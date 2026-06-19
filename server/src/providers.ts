@@ -118,20 +118,21 @@ export async function callProvider(
   messages: Message[],
   model: string,
   env: NodeJS.ProcessEnv,
+  apiKey?: string,
 ): Promise<ProviderResponse> {
   switch (provider) {
     case 'openai': {
-      const key = env.OPENAI_API_KEY;
+      const key = apiKey || env.OPENAI_API_KEY;
       if (!key) throw new Error('OPENAI_API_KEY is not configured');
       return callOpenAI(messages, key, model);
     }
     case 'gemini': {
-      const key = env.GEMINI_API_KEY;
+      const key = apiKey || env.GEMINI_API_KEY;
       if (!key) throw new Error('GEMINI_API_KEY is not configured');
       return callGemini(messages, key, model);
     }
     case 'anthropic': {
-      const key = env.ANTHROPIC_API_KEY;
+      const key = apiKey || env.ANTHROPIC_API_KEY;
       if (!key) throw new Error('ANTHROPIC_API_KEY is not configured');
       return callAnthropic(messages, key, model);
     }

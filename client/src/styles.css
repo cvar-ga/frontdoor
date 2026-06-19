@@ -388,6 +388,65 @@ body {
 .send-btn:hover:not(:disabled) { opacity: .85; transform: scale(1.05); }
 .send-btn:disabled { opacity: .35; cursor: not-allowed; }
 
+/* ── API Key input ── */
+.key-input-wrap {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.key-input {
+  flex: 1;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 12px;
+  font-family: 'Consolas', 'Cascadia Code', monospace;
+  padding: 7px 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+.key-input:focus { outline: none; border-color: var(--accent); }
+.key-input::placeholder { color: var(--text-muted); font-family: var(--font); }
+
+.key-toggle {
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 5px 8px;
+  flex-shrink: 0;
+  line-height: 1;
+  transition: border-color .15s;
+}
+
+.key-toggle:hover { border-color: var(--accent); }
+
+.key-detected {
+  font-size: 11px;
+  color: var(--ok);
+}
+
+.key-unknown {
+  font-size: 11px;
+  color: var(--warn);
+}
+
+.key-badge {
+  font-size: 9px;
+  font-weight: 700;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 4px;
+  padding: 1px 5px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
 /* Misc */
 .error-badge {
   background: #1f0f0f;

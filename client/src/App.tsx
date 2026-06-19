@@ -8,6 +8,14 @@ const PROVIDER_LABELS: Record<Provider, string> = {
   anthropic: 'Claude',
 };
 
+function detectProvider(key: string): Provider | null {
+  const k = key.trim();
+  if (/^sk-ant-[A-Za-z0-9\-_]{10,}/.test(k)) return 'anthropic';
+  if (/^AIza[0-9A-Za-z\-_]{10,}/.test(k)) return 'gemini';
+  if (/^sk-[A-Za-z0-9]{10,}/.test(k)) return 'openai';
+  return null;
+}
+
 const PROVIDER_COLORS: Record<Provider, string> = {
   openai: '#10a37f',
   gemini: '#4285f4',
@@ -28,6 +36,8 @@ export default function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -59,6 +69,22 @@ export default function App() {
     .map((k) => k.trim())
     .filter(Boolean);
 
+  const detectedProvider = detectProvider(apiKey);
+  const envProviders = config?.providers ?? [];
+  const availableProviders: Provider[] = [
+    ...envProviders,
+    ...(detectedProvider && !envProviders.includes(detectedProvider) ? [detectedProvider] : []),
+  ];
+
+  const handleApiKeyChange = useCallback((key: string) => {
+    setApiKey(key);
+    const detected = detectProvider(key);
+    if (detected && config) {
+      setProvider(detected);
+      setModel(config.defaultModels[detected]);
+    }
+  }, [config]);
+
   const availableModels = config?.models[provider] ?? [];
   const selectedModelInfo = availableModels.find((m) => m.id === model);
 
@@ -77,7 +103,7 @@ export default function App() {
     setLoading(true);
 
     const history = [...messages, userMsg];
-    const result = await sendChat(provider, model, history, sensitivity, forbiddenKeywordList);
+    const result = await sendChat(provider, model, history, sensitivity, forbiddenKeywordList, apiKey.trim() || undefined);
     setLoading(false);
 
     if (result.ok) {
@@ -115,7 +141,7 @@ export default function App() {
         },
       ]);
     }
-  }, [input, loading, messages, provider, model, sensitivity, forbiddenKeywordList]);
+  }, [input, loading, messages, provider, model, sensitivity, forbiddenKeywordList, apiKey]);
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -136,27 +162,57 @@ export default function App() {
         </div>
 
         <div className="sidebar-section">
+          <label className="section-label">API Key</label>
+          <div className="key-input-wrap">
+            <input
+              type={showApiKey ? 'text' : 'password'}
+              className="key-input"
+              placeholder="Paste your API key…"
+              value={apiKey}
+              onChange={(e) => handleApiKeyChange(e.target.value)}
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <button
+              className="key-toggle"
+              onClick={() => setShowApiKey((s) => !s)}
+              title={showApiKey ? 'Hide key' : 'Show key'}
+            >
+              {showApiKey ? '🙈' : '👁'}
+            </button>
+          </div>
+          {apiKey.trim() && (
+            detectedProvider
+              ? <p className="key-detected">Detected: <strong>{PROVIDER_LABELS[detectedProvider]}</strong></p>
+              : <p className="key-unknown">Unknown key format</p>
+          )}
+          <p className="hint">Paste any OpenAI, Gemini, or Anthropic key — provider auto-selects.</p>
+        </div>
+
+        <div className="sidebar-section">
           <label className="section-label">AI Provider</label>
           {configError ? (
             <div className="error-badge">{configError}</div>
           ) : !config ? (
             <div className="loading-text">Loading…</div>
-          ) : config.providers.length === 0 ? (
-            <div className="error-badge">No providers configured. Add API keys to .env</div>
+          ) : availableProviders.length === 0 ? (
+            <div className="error-badge">No providers configured. Add an API key above or in .env</div>
           ) : (
             <div className="provider-list">
               {(['openai', 'gemini', 'anthropic'] as Provider[]).map((p) => {
-                const available = config.providers.includes(p);
+                const available = availableProviders.includes(p);
+                const fromUserKey = available && !envProviders.includes(p);
                 return (
                   <button
                     key={p}
                     className={`provider-btn ${provider === p ? 'active' : ''} ${!available ? 'disabled' : ''}`}
                     style={provider === p ? { borderColor: PROVIDER_COLORS[p], color: PROVIDER_COLORS[p] } : {}}
                     onClick={() => available && setProvider(p)}
-                    title={available ? '' : 'API key not configured'}
+                    title={available ? (fromUserKey ? 'Unlocked by pasted key' : '') : 'API key not configured'}
                   >
                     {PROVIDER_LABELS[p]}
                     {!available && <span className="lock">🔒</span>}
+                    {fromUserKey && <span className="key-badge">key</span>}
                   </button>
                 );
               })}
@@ -165,7 +221,7 @@ export default function App() {
         </div>
 
         {/* ── Model selector ── */}
-        {config && config.providers.includes(provider) && (
+        {config && availableProviders.includes(provider) && (
           <div className="sidebar-section">
             <label className="section-label">Model</label>
             <div className="model-list">
@@ -227,7 +283,7 @@ export default function App() {
         <header className="topbar" style={{ borderBottomColor: activeColor }}>
           <div className="topbar-title">
             Secure AI Gateway
-            {config && config.providers.includes(provider) && (
+            {config && availableProviders.includes(provider) && (
               <span className="topbar-provider" style={{ color: activeColor }}>
                 → {selectedModelInfo?.label ?? model}
               </span>
@@ -243,8 +299,8 @@ export default function App() {
               <div className="empty-title">Front Door</div>
               <div className="empty-sub">
                 Your prompts are scanned for sensitive data before reaching any AI provider.
-                {config && config.providers.length === 0 && (
-                  <span className="setup-note"><br />Add your API keys to <code>.env</code> and restart the server.</span>
+                {config && availableProviders.length === 0 && (
+                  <span className="setup-note"><br />Paste an API key in the sidebar, or add keys to <code>.env</code> and restart the server.</span>
                 )}
               </div>
             </div>
@@ -296,19 +352,19 @@ export default function App() {
             className="input-box"
             placeholder={
               config && config.providers.length === 0
-                ? 'Configure at least one provider in .env to start chatting…'
+                ? 'Paste an API key in the sidebar or configure .env to start chatting…'
                 : `Message ${selectedModelInfo?.label ?? '…'} (Shift+Enter for new line)`
             }
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKey}
             rows={1}
-            disabled={loading || !config || config.providers.length === 0}
+            disabled={loading || !config || availableProviders.length === 0}
           />
           <button
             className="send-btn"
             onClick={submit}
-            disabled={loading || !input.trim() || !config || config.providers.length === 0}
+            disabled={loading || !input.trim() || !config || availableProviders.length === 0}
             style={{ backgroundColor: activeColor }}
           >
             {loading ? '…' : '↑'}
