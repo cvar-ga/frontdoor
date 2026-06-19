@@ -12,7 +12,7 @@ function detectProvider(key: string): Provider | null {
   const k = key.trim();
   if (/^sk-ant-[A-Za-z0-9\-_]{10,}/.test(k)) return 'anthropic';
   if (/^AIza[0-9A-Za-z\-_]{10,}/.test(k)) return 'gemini';
-  if (/^sk-[A-Za-z0-9]{10,}/.test(k)) return 'openai';
+  if (/^sk-[A-Za-z0-9\-_]{10,}/.test(k)) return 'openai';
   return null;
 }
 
