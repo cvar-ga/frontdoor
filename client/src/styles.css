@@ -90,6 +90,28 @@ body {
 .provider-btn.disabled { opacity: .45; cursor: not-allowed; }
 .lock { font-size: 12px; }
 
+.active-model {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.active-model-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.active-model-name { line-height: 1; }
+
 .model-list { display: flex; flex-direction: column; gap: 5px; }
 
 .model-btn {

@@ -2,34 +2,15 @@
 
 A secure gateway for internal users accessing public AI providers. Every prompt is scanned for sensitive data before it leaves your network. Requests containing PII, credentials, or other configured sensitive content are blocked and never forwarded.
 
-## Supported AI providers and models
+## Supported AI model
 
-Users choose a provider and model from the sidebar. All listed models are the lowest-cost or free-tier options available from each provider.
+Front Door is configured to use **Google Gemini 2.5 Flash** exclusively.
 
-### OpenAI (ChatGPT)
 | Model ID | Label |
 |---|---|
-| `gpt-4o-mini` | GPT-4o Mini *(default)* |
-| `gpt-3.5-turbo` | GPT-3.5 Turbo |
+| `gemini-2.5-flash` | Gemini 2.5 Flash |
 
-> OpenAI has no free API tier. Both models require a paid account.
-
-### Google Gemini
-| Model ID | Label |
-|---|---|
-| `gemini-2.5-flash-preview-05-20` | Gemini 2.5 Flash *(default)* |
-| `gemini-2.0-flash` | Gemini 2.0 Flash |
-| `gemini-1.5-flash` | Gemini 1.5 Flash |
-| `gemini-1.5-pro` | Gemini 1.5 Pro |
-
-> Gemini offers a free API tier (rate-limited) for all listed models.
-
-### Anthropic (Claude)
-| Model ID | Label |
-|---|---|
-| `claude-haiku-4-5-20251001` | Claude Haiku 4.5 *(default)* |
-
-> Anthropic has no free API tier. Haiku 4.5 is the lowest-cost paid option.
+> Gemini offers a free API tier (rate-limited). Supply your key by pasting it in the UI, or by setting `GEMINI_API_KEY` in `.env`.
 
 ## What the scanner detects
 
@@ -45,7 +26,7 @@ The **sensitivity** setting controls the minimum severity level that triggers a 
 
 ### Prerequisites
 - Node.js 18+ ([nodejs.org](https://nodejs.org))
-- API key(s) for at least one AI provider
+- A Google Gemini API key ([aistudio.google.com/apikey](https://aistudio.google.com/apikey))
 
 ### 1. Install dependencies
 
@@ -53,21 +34,13 @@ The **sensitivity** setting controls the minimum severity level that triggers a 
 npm run install:all
 ```
 
-### 2. Configure API keys
+### 2. Configure your Gemini API key
 
-**Option A — paste a key directly in the UI (easiest)**
+**Option A — paste it in the UI (easiest)**
 
-Start the server first (step 3), then paste any API key into the **API Key** field in the sidebar. The provider is detected automatically from the key prefix and the corresponding provider button unlocks immediately. No server restart needed.
+Start the server first (step 3), then paste your Google Gemini API key into the **API Key** field in the sidebar. The key is held in browser memory for the session only and sent securely with each request. No server restart needed.
 
-| Key prefix | Provider |
-|---|---|
-| `sk-ant-…` | Anthropic (Claude) |
-| `AIza…` | Google Gemini |
-| `sk-…` / `sk-proj-…` | OpenAI (ChatGPT) |
-
-Keys entered this way are held in browser memory for the session only and sent securely with each request.
-
-**Option B — configure server-side keys in `.env`**
+**Option B — configure a server-side key in `.env`**
 
 Use the included PowerShell setup script:
 
@@ -75,7 +48,7 @@ Use the included PowerShell setup script:
 .\scripts\Set-FrontDoorKeys.ps1
 ```
 
-The script will prompt you for each provider's API key and write them to `.env`. Press Enter to skip any provider you don't want to configure. You only need at least one key to use the app.
+The script prompts you for your Gemini API key and writes it to `.env`.
 
 **Optional — persist keys as Windows environment variables** (requires running as Administrator):
 
@@ -110,9 +83,7 @@ All server-side configuration lives in `.env`:
 
 | Variable | Default | Description |
 |---|---|---|
-| `OPENAI_API_KEY` | — | OpenAI API key (can also be supplied per-session via the UI) |
 | `GEMINI_API_KEY` | — | Google Gemini API key (can also be supplied per-session via the UI) |
-| `ANTHROPIC_API_KEY` | — | Anthropic API key (can also be supplied per-session via the UI) |
 | `PORT` | `3001` | Backend server port |
 | `SENSITIVITY` | `medium` | `high` / `medium` / `low` — minimum severity to block |
 | `FORBIDDEN_KEYWORDS` | — | Comma-separated list of always-blocked terms |
@@ -134,7 +105,7 @@ frontdoor/
 │       ├── index.ts           # Express app entry point
 │       ├── routes.ts          # /api/chat  /api/scan  /api/config
 │       ├── scanner.ts         # Sensitive data detection engine
-│       └── providers.ts       # Model catalog + OpenAI / Gemini / Anthropic proxies
+│       └── providers.ts       # Model catalog + Google Gemini proxy
 └── client/
     ├── package.json
     ├── tsconfig.json

@@ -16,7 +16,7 @@ interface Rule {
   severity: Severity;
   description: string;
   pattern: RegExp;
-  validate?: (match: string) => boolean;
+  validate?: (match: string, context: string) => boolean;
 }
 
 const RULES: Rule[] = [

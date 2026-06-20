@@ -2,25 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Provider, Message, Config, SensitivityLevel } from './types';
 import { fetchConfig, sendChat } from './api';
 
-const PROVIDER_LABELS: Record<Provider, string> = {
-  openai: 'ChatGPT',
-  gemini: 'Gemini',
-  anthropic: 'Claude',
-};
-
-function detectProvider(key: string): Provider | null {
-  const k = key.trim();
-  if (/^sk-ant-[A-Za-z0-9\-_]{10,}/.test(k)) return 'anthropic';
-  if (/^AIza[0-9A-Za-z\-_]{10,}/.test(k)) return 'gemini';
-  if (/^sk-[A-Za-z0-9\-_]{10,}/.test(k)) return 'openai';
-  return null;
-}
-
-const PROVIDER_COLORS: Record<Provider, string> = {
-  openai: '#10a37f',
-  gemini: '#4285f4',
-  anthropic: '#d97706',
-};
+const PROVIDER: Provider = 'gemini';
+const GEMINI_COLOR = '#4285f4';
+const MODEL_LABEL = 'Gemini 2.5 Flash';
 
 function uid() {
   return Math.random().toString(36).slice(2);
@@ -29,8 +13,6 @@ function uid() {
 export default function App() {
   const [config, setConfig] = useState<Config | null>(null);
   const [configError, setConfigError] = useState<string | null>(null);
-  const [provider, setProvider] = useState<Provider>('openai');
-  const [model, setModel] = useState<string>('');
   const [sensitivity, setSensitivity] = useState<SensitivityLevel>('medium');
   const [keywords, setKeywords] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -46,19 +28,9 @@ export default function App() {
         setConfig(cfg);
         setSensitivity(cfg.sensitivity);
         setKeywords(cfg.forbiddenKeywords.join(', '));
-        if (cfg.providers.length > 0) {
-          const firstProvider = cfg.providers[0];
-          setProvider(firstProvider);
-          setModel(cfg.defaultModels[firstProvider]);
-        }
       })
       .catch(() => setConfigError('Cannot reach the Front Door server. Is it running?'));
   }, []);
-
-  // When provider changes, reset model to that provider's default
-  useEffect(() => {
-    if (config) setModel(config.defaultModels[provider]);
-  }, [provider, config]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -69,24 +41,10 @@ export default function App() {
     .map((k) => k.trim())
     .filter(Boolean);
 
-  const detectedProvider = detectProvider(apiKey);
-  const envProviders = config?.providers ?? [];
-  const availableProviders: Provider[] = [
-    ...envProviders,
-    ...(detectedProvider && !envProviders.includes(detectedProvider) ? [detectedProvider] : []),
-  ];
-
-  const handleApiKeyChange = useCallback((key: string) => {
-    setApiKey(key);
-    const detected = detectProvider(key);
-    if (detected && config) {
-      setProvider(detected);
-      setModel(config.defaultModels[detected]);
-    }
-  }, [config]);
-
-  const availableModels = config?.models[provider] ?? [];
-  const selectedModelInfo = availableModels.find((m) => m.id === model);
+  const model = config?.defaultModels[PROVIDER] ?? 'gemini-2.5-flash';
+  const serverKeyConfigured = (config?.providers ?? []).includes(PROVIDER);
+  const hasPastedKey = apiKey.trim().length > 0;
+  const canSend = !!config && (serverKeyConfigured || hasPastedKey);
 
   const submit = useCallback(async () => {
     const text = input.trim();
@@ -103,7 +61,14 @@ export default function App() {
     setLoading(true);
 
     const history = [...messages, userMsg];
-    const result = await sendChat(provider, model, history, sensitivity, forbiddenKeywordList, apiKey.trim() || undefined);
+    const result = await sendChat(
+      PROVIDER,
+      model,
+      history,
+      sensitivity,
+      forbiddenKeywordList,
+      apiKey.trim() || undefined,
+    );
     setLoading(false);
 
     if (result.ok) {
@@ -141,7 +106,7 @@ export default function App() {
         },
       ]);
     }
-  }, [input, loading, messages, provider, model, sensitivity, forbiddenKeywordList, apiKey]);
+  }, [input, loading, messages, model, sensitivity, forbiddenKeywordList, apiKey]);
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -149,8 +114,6 @@ export default function App() {
       submit();
     }
   };
-
-  const activeColor = config ? PROVIDER_COLORS[provider] : '#6b7280';
 
   return (
     <div className="app">
@@ -161,15 +124,32 @@ export default function App() {
           <span className="logo-text">Front Door</span>
         </div>
 
+        {/* ── Active model (Gemini only) ── */}
+        <div className="sidebar-section">
+          <label className="section-label">AI Model</label>
+          {configError ? (
+            <div className="error-badge">{configError}</div>
+          ) : !config ? (
+            <div className="loading-text">Loading…</div>
+          ) : (
+            <div className="active-model" style={{ borderColor: GEMINI_COLOR }}>
+              <span className="active-model-dot" style={{ background: GEMINI_COLOR }} />
+              <span className="active-model-name">{MODEL_LABEL}</span>
+            </div>
+          )}
+          <p className="hint">Front Door is configured to use Google Gemini.</p>
+        </div>
+
+        {/* ── API key ── */}
         <div className="sidebar-section">
           <label className="section-label">API Key</label>
           <div className="key-input-wrap">
             <input
               type={showApiKey ? 'text' : 'password'}
               className="key-input"
-              placeholder="Paste your API key…"
+              placeholder="Paste your Gemini API key…"
               value={apiKey}
-              onChange={(e) => handleApiKeyChange(e.target.value)}
+              onChange={(e) => setApiKey(e.target.value)}
               autoComplete="off"
               spellCheck={false}
             />
@@ -181,63 +161,13 @@ export default function App() {
               {showApiKey ? '🙈' : '👁'}
             </button>
           </div>
-          {apiKey.trim() && (
-            detectedProvider
-              ? <p className="key-detected">Detected: <strong>{PROVIDER_LABELS[detectedProvider]}</strong></p>
-              : <p className="key-unknown">Unknown key format</p>
-          )}
-          <p className="hint">Paste any OpenAI, Gemini, or Anthropic key — provider auto-selects.</p>
+          {serverKeyConfigured ? (
+            <p className="key-detected">Server key configured ✓ (paste one to override)</p>
+          ) : hasPastedKey ? (
+            <p className="key-detected">Key ready ✓</p>
+          ) : null}
+          <p className="hint">Paste your Google Gemini API key. Any key format is accepted.</p>
         </div>
-
-        <div className="sidebar-section">
-          <label className="section-label">AI Provider</label>
-          {configError ? (
-            <div className="error-badge">{configError}</div>
-          ) : !config ? (
-            <div className="loading-text">Loading…</div>
-          ) : availableProviders.length === 0 ? (
-            <div className="error-badge">No providers configured. Add an API key above or in .env</div>
-          ) : (
-            <div className="provider-list">
-              {(['openai', 'gemini', 'anthropic'] as Provider[]).map((p) => {
-                const available = availableProviders.includes(p);
-                const fromUserKey = available && !envProviders.includes(p);
-                return (
-                  <button
-                    key={p}
-                    className={`provider-btn ${provider === p ? 'active' : ''} ${!available ? 'disabled' : ''}`}
-                    style={provider === p ? { borderColor: PROVIDER_COLORS[p], color: PROVIDER_COLORS[p] } : {}}
-                    onClick={() => available && setProvider(p)}
-                    title={available ? (fromUserKey ? 'Unlocked by pasted key' : '') : 'API key not configured'}
-                  >
-                    {PROVIDER_LABELS[p]}
-                    {!available && <span className="lock">🔒</span>}
-                    {fromUserKey && <span className="key-badge">key</span>}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* ── Model selector ── */}
-        {config && availableProviders.includes(provider) && (
-          <div className="sidebar-section">
-            <label className="section-label">Model</label>
-            <div className="model-list">
-              {availableModels.map((m) => (
-                <button
-                  key={m.id}
-                  className={`model-btn ${model === m.id ? 'active' : ''}`}
-                  style={model === m.id ? { borderColor: activeColor, color: activeColor } : {}}
-                  onClick={() => setModel(m.id)}
-                >
-                  <span className="model-label">{m.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
 
         <div className="sidebar-section">
           <label className="section-label">Sensitivity</label>
@@ -280,12 +210,12 @@ export default function App() {
 
       {/* ── Main ── */}
       <main className="main">
-        <header className="topbar" style={{ borderBottomColor: activeColor }}>
+        <header className="topbar" style={{ borderBottomColor: GEMINI_COLOR }}>
           <div className="topbar-title">
             Secure AI Gateway
-            {config && availableProviders.includes(provider) && (
-              <span className="topbar-provider" style={{ color: activeColor }}>
-                → {selectedModelInfo?.label ?? model}
+            {config && (
+              <span className="topbar-provider" style={{ color: GEMINI_COLOR }}>
+                → {MODEL_LABEL}
               </span>
             )}
           </div>
@@ -298,9 +228,9 @@ export default function App() {
               <div className="empty-icon">🚪</div>
               <div className="empty-title">Front Door</div>
               <div className="empty-sub">
-                Your prompts are scanned for sensitive data before reaching any AI provider.
-                {config && availableProviders.length === 0 && (
-                  <span className="setup-note"><br />Paste an API key in the sidebar, or add keys to <code>.env</code> and restart the server.</span>
+                Your prompts are scanned for sensitive data before reaching Gemini.
+                {config && !canSend && (
+                  <span className="setup-note"><br />Paste your Gemini API key in the sidebar to begin.</span>
                 )}
               </div>
             </div>
@@ -351,21 +281,21 @@ export default function App() {
           <textarea
             className="input-box"
             placeholder={
-              config && config.providers.length === 0
-                ? 'Paste an API key in the sidebar or configure .env to start chatting…'
-                : `Message ${selectedModelInfo?.label ?? '…'} (Shift+Enter for new line)`
+              !canSend
+                ? 'Paste your Gemini API key in the sidebar to start chatting…'
+                : `Message ${MODEL_LABEL} (Shift+Enter for new line)`
             }
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKey}
             rows={1}
-            disabled={loading || !config || availableProviders.length === 0}
+            disabled={loading || !canSend}
           />
           <button
             className="send-btn"
             onClick={submit}
-            disabled={loading || !input.trim() || !config || availableProviders.length === 0}
-            style={{ backgroundColor: activeColor }}
+            disabled={loading || !input.trim() || !canSend}
+            style={{ backgroundColor: GEMINI_COLOR }}
           >
             {loading ? '…' : '↑'}
           </button>

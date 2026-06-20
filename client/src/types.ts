@@ -1,4 +1,4 @@
-export type Provider = 'openai' | 'gemini' | 'anthropic';
+export type Provider = 'gemini';
 export type Severity = 'HIGH' | 'MEDIUM' | 'LOW';
 export type SensitivityLevel = 'high' | 'medium' | 'low';
 

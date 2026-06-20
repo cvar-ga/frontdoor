@@ -6,10 +6,11 @@ const router = Router();
 
 // GET /api/config — surface which providers are configured and current settings
 router.get('/config', (_req: Request, res: Response) => {
+  // Never cache config — model catalog/providers can change between restarts.
+  res.set('Cache-Control', 'no-store');
+
   const configured: Provider[] = [];
-  if (process.env.OPENAI_API_KEY) configured.push('openai');
-  if (process.env.GEMINI_API_KEY) configured.push('gemini');
-  if (process.env.ANTHROPIC_API_KEY) configured.push('anthropic');
+  if (process.env.GEMINI_API_KEY?.trim()) configured.push('gemini');
 
   res.json({
     providers: configured,

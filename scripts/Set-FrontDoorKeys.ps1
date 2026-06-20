@@ -1,13 +1,13 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Configures API keys for the Front Door secure AI gateway.
 
 .DESCRIPTION
-    Prompts the sysadmin for API keys for any combination of OpenAI, Google Gemini,
-    and Anthropic (Claude). Writes the keys to the project .env file and optionally
-    persists them as Windows machine-level environment variables so they survive
-    reboots and are available to all users on the workstation.
+    Prompts the sysadmin for the Google Gemini API key that Front Door uses, writes
+    it to the project .env file, and optionally persists it as a Windows machine-level
+    environment variable so it survives reboots and is available to all users on the
+    workstation.
 
 .PARAMETER EnvFile
     Path to the .env file. Defaults to .env in the same directory as this script's
@@ -116,16 +116,9 @@ if ($Persist) {
     Write-Host "    • Windows machine environment variables (persisted)" -ForegroundColor Gray
 }
 Write-Host ""
-Write-Host "  You only need at least ONE provider key to use Front Door." -ForegroundColor DarkYellow
-Write-Host "  Press Enter to skip any provider you don't want to configure." -ForegroundColor DarkGray
+Write-Host "  Front Door uses Google Gemini. Enter your Gemini API key below." -ForegroundColor DarkYellow
 
-# ── Collect keys ─────────────────────────────────────────────────────────────
-
-Write-Header "OpenAI (ChatGPT)"
-$openaiKey = Read-ApiKey `
-    -Provider "OpenAI" `
-    -EnvVar "OPENAI_API_KEY" `
-    -Hint "sk-..."
+# ── Collect key ──────────────────────────────────────────────────────────────
 
 Write-Header "Google (Gemini)"
 $geminiKey = Read-ApiKey `
@@ -133,27 +126,18 @@ $geminiKey = Read-ApiKey `
     -EnvVar "GEMINI_API_KEY" `
     -Hint "AIza..."
 
-Write-Header "Anthropic (Claude)"
-$anthropicKey = Read-ApiKey `
-    -Provider "Anthropic" `
-    -EnvVar "ANTHROPIC_API_KEY" `
-    -Hint "sk-ant-..."
+# ── Validate a key was provided ──────────────────────────────────────────────
 
-# ── Validate at least one key provided ───────────────────────────────────────
-
-$provided = @($openaiKey, $geminiKey, $anthropicKey) | Where-Object { $_ -ne "" }
-if ($provided.Count -eq 0) {
+if ($geminiKey -eq "") {
     Write-Host ""
-    Write-Host "  [!] No keys entered. Nothing was saved." -ForegroundColor Red
+    Write-Host "  [!] No key entered. Nothing was saved." -ForegroundColor Red
     exit 1
 }
 
 # ── Build update table ────────────────────────────────────────────────────────
 
 $updates = @{}
-if ($openaiKey)    { $updates["OPENAI_API_KEY"]    = $openaiKey }
-if ($geminiKey)    { $updates["GEMINI_API_KEY"]     = $geminiKey }
-if ($anthropicKey) { $updates["ANTHROPIC_API_KEY"]  = $anthropicKey }
+$updates["GEMINI_API_KEY"] = $geminiKey
 
 # ── Write .env ────────────────────────────────────────────────────────────────
 
@@ -184,19 +168,9 @@ Write-Host "  ║               Configuration saved            ║" -ForegroundC
 Write-Host "  ╚══════════════════════════════════════════════╝" -ForegroundColor DarkCyan
 Write-Host ""
 
-$labels = @{
-    "OPENAI_API_KEY"    = "OpenAI (ChatGPT)"
-    "GEMINI_API_KEY"    = "Google Gemini"
-    "ANTHROPIC_API_KEY" = "Anthropic (Claude)"
-}
-
-foreach ($key in $labels.Keys) {
-    $status = if ($updates.ContainsKey($key)) { "Configured ✓" } else { "Skipped" }
-    $color  = if ($updates.ContainsKey($key)) { "Green" } else { "DarkGray" }
-    Write-Host ("  {0,-22} {1}" -f $labels[$key], $status) -ForegroundColor $color
-}
+Write-Host ("  {0,-22} {1}" -f "Google Gemini", "Configured ✓") -ForegroundColor Green
 
 Write-Host ""
-Write-Host "  Next step: restart the Front Door server to pick up the new keys." -ForegroundColor DarkYellow
+Write-Host "  Next step: restart the Front Door server to pick up the new key." -ForegroundColor DarkYellow
 Write-Host "  From the project root, run:  npm run dev" -ForegroundColor White
 Write-Host ""
